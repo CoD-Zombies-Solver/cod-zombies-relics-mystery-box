@@ -62,16 +62,19 @@ src/
 │   └── MysteryBox3D.css
 ├── data/
 │   └── relics.ts           # Relic pool (Grim / Sinister / Wicked)
-└── mystery-box/
-    ├── scene.gltf          # 3D Mystery Box model
-    └── license.txt         # Model attribution (CC-BY-4.0)
+public/
+└── mystery-box/            # 3D model (gltf + bin + textures; served as static files)
+    ├── scene.gltf
+    ├── scene.bin
+    ├── textures/
+    └── license.txt
 ```
 
 To add or edit relics, update the arrays in `src/data/relics.ts`. Each relic needs `id`, `name`, `type`, `description`, and `image`.
 
 ## 3D model credit
 
-The Mystery Box mesh is based on **“( Rigged ) COD Zombies Mystery Box”** by [_M_P3p3_](https://sketchfab.com/_M_P3p3_) on Sketchfab, licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/). See `src/mystery-box/license.txt` for full attribution.
+The Mystery Box mesh is based on **“( Rigged ) COD Zombies Mystery Box”** by [_M_P3p3_](https://sketchfab.com/_M_P3p3_) on Sketchfab, licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/). See `public/mystery-box/license.txt` for full attribution.
 
 ## License
 

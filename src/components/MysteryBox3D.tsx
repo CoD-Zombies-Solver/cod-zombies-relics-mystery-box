@@ -1,8 +1,9 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, Suspense } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { useGLTF } from '@react-three/drei'
-import modelUrl from '../mystery-box/scene.gltf?url'
-import { OrbitControls } from '@react-three/drei'
+import { useGLTF, OrbitControls, Html, useProgress } from '@react-three/drei'
+
+// Served from /public so scene.bin + textures keep their relative paths in production
+const MODEL_URL = `${import.meta.env.BASE_URL}mystery-box/scene.gltf`
 import './MysteryBox3D.css'
 import { grimRelics, sinisterRelics, wickedRelics } from '../data/relics'
 import type { Relic } from '../data/relics'
@@ -42,9 +43,19 @@ function useMediaQuery(query: string) {
   return matches
 }
 
+useGLTF.preload(MODEL_URL)
+
+function SceneLoader() {
+  const { progress } = useProgress()
+  return (
+    <Html center>
+      <p className="scene-loading">Loading box… {Math.round(progress)}%</p>
+    </Html>
+  )
+}
+
 function BoxModel({ open, compact }: { open: boolean; compact?: boolean }) {
-  // load the GLTF model the user added
-  const gltf: any = useGLTF(modelUrl)
+  const gltf = useGLTF(MODEL_URL)
   const topRef = useRef<any>(null)
 
   // try to find a node that matches common box top names
@@ -77,9 +88,11 @@ function BoxModel({ open, compact }: { open: boolean; compact?: boolean }) {
     }
   })
 
+  if (!gltf.scene) return null
+
   return (
     <group position={[0, compact ? -2.65 : -3, 0]} scale={compact ? 1.12 : 1}>
-      <primitive object={gltf.scene} dispose={null} />
+      <primitive object={gltf.scene} />
     </group>
   )
 }
@@ -136,7 +149,9 @@ export default function MysteryBox3D() {
         <Canvas shadows camera={camera}>
           <ambientLight intensity={isMobile ? 0.72 : 0.6} />
           <directionalLight position={[2, 5, 2]} intensity={isMobile ? 1.15 : 1} castShadow />
-          <BoxModel open={open} compact={isMobile} />
+          <Suspense fallback={<SceneLoader />}>
+            <BoxModel open={open} compact={isMobile} />
+          </Suspense>
           <OrbitControls
             enableZoom={false}
             enablePan={false}
