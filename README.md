@@ -1,75 +1,78 @@
-# React + TypeScript + Vite
+# CoD Zombies Cursed Mystery Box
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A web app for **Call of Duty Zombies** “Cursed Relics” challenges. Open a 3D Mystery Box to draw a random set of relics from the full pool, then reroll individual cards before your run.
 
-Currently, two official plugins are available:
+Built for use alongside [CoD Zombies Solver](https://codzombiessolver.com) cursed relic content.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
 
-## React Compiler
+- **3D Mystery Box** — Rigged GLTF model with an animated lid (React Three Fiber + Three.js)
+- **Random draws** — Each open reveals between 1 and all available relics from the pool
+- **Three relic tiers** — Grim, Sinister, and Wicked, each with distinct card styling
+- **Per-card rerolls** — Swap any revealed relic up to **3 times** per box open
+- **Responsive layout** — Desktop overlay grid and a mobile-friendly stacked scene + scrollable cards panel
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+## How it works
 
-Note: This will impact Vite dev & build performances.
+1. Click **Open Box** to spin the Mystery Box and reveal your relics.
+2. Read each card’s name, type, and in-game challenge description.
+3. Use **Reroll** on cards you want to replace (while rerolls remain).
+4. Open the box again anytime for a completely new draw.
 
-## Expanding the ESLint configuration
+Relic data and artwork are loaded from `src/data/relics.ts` and [codzombiessolver.com](https://images.codzombiessolver.com/cursed/) image URLs.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Tech stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+| Layer | Tools |
+| --- | --- |
+| UI | React 19, TypeScript |
+| Build | Vite 8 |
+| 3D | Three.js, `@react-three/fiber`, `@react-three/drei` |
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Getting started
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+**Requirements:** Node.js 20+ and [pnpm](https://pnpm.io) (recommended) or npm.
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start dev server
+pnpm dev
+
+# Production build
+pnpm build
+
+# Preview production build
+pnpm preview
+
+# Lint
+pnpm lint
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The dev server runs at `http://localhost:5173` by default.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Project structure
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+src/
+├── App.tsx                 # App shell
+├── components/
+│   ├── MysteryBox3D.tsx    # 3D Mystery Box experience
+│   └── MysteryBox3D.css
+├── data/
+│   └── relics.ts           # Relic pool (Grim / Sinister / Wicked)
+└── mystery-box/
+    ├── scene.gltf          # 3D Mystery Box model
+    └── license.txt         # Model attribution (CC-BY-4.0)
+```
+
+To add or edit relics, update the arrays in `src/data/relics.ts`. Each relic needs `id`, `name`, `type`, `description`, and `image`.
+
+## 3D model credit
+
+The Mystery Box mesh is based on **“( Rigged ) COD Zombies Mystery Box”** by [_M_P3p3_](https://sketchfab.com/_M_P3p3_) on Sketchfab, licensed under [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/). See `src/mystery-box/license.txt` for full attribution.
+
+## License
+
+This project’s application code is private (`package.json` sets `"private": true`). Third-party assets (3D model, relic images) remain subject to their respective licenses and terms.
