@@ -1,6 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import modelUrl from '../mystery-box/scene.gltf?url'
 import { OrbitControls } from '@react-three/drei'
@@ -70,7 +69,7 @@ function BoxModel({ open, compact }: { open: boolean; compact?: boolean }) {
     }
   }, [gltf])
 
-  useFrame((state, dt) => {
+  useFrame((_state, dt) => {
     if (topRef.current) {
       const target = open ? 0 : Math.PI * 1
       // smooth rotation towards target
@@ -83,48 +82,6 @@ function BoxModel({ open, compact }: { open: boolean; compact?: boolean }) {
       <primitive object={gltf.scene} dispose={null} />
     </group>
   )
-}
-
-function createDecalTexture() {
-  const size = 512
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')!
-
-  // background radial glow
-  const g = ctx.createRadialGradient(size/2, size/2, 30, size/2, size/2, size/1.6)
-  g.addColorStop(0, 'rgba(255,150,170,0.95)')
-  g.addColorStop(0.35, 'rgba(80,100,255,0.6)')
-  g.addColorStop(1, 'rgba(0,0,0,0)')
-  ctx.fillStyle = g
-  ctx.fillRect(0,0,size,size)
-
-  // draw box emblem (simple stylized M)
-  ctx.fillStyle = '#fff'
-  ctx.globalCompositeOperation = 'screen'
-  ctx.beginPath()
-  ctx.moveTo(size*0.22, size*0.66)
-  ctx.lineTo(size*0.36, size*0.34)
-  ctx.lineTo(size*0.5, size*0.6)
-  ctx.lineTo(size*0.64, size*0.34)
-  ctx.lineTo(size*0.78, size*0.66)
-  ctx.lineTo(size*0.66, size*0.66)
-  ctx.lineTo(size*0.5, size*0.44)
-  ctx.lineTo(size*0.34, size*0.66)
-  ctx.closePath()
-  ctx.fill()
-
-  // subtle noise
-  for (let i=0;i<1200;i++){
-    ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.08})`
-    ctx.fillRect(Math.random()*size, Math.random()*size, 1,1)
-  }
-
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.needsUpdate = true
-  tex.encoding = THREE.sRGBEncoding
-  return tex
 }
 
 export default function MysteryBox3D() {
