@@ -1,5 +1,5 @@
 # Cursed Mystery Box
 
-Players spin an animated Mystery Box to get a random amount of relics of any type from the relics pool that they have to use in-game.
+Players choose a desired Cursed Tier, optionally exclude discovered relics they have not unlocked, and spin an animated Mystery Box to receive a random valid combination that exactly matches the tier's cursed-points requirement.
 
-They can re-roll select relics, if they don't have them unlocked. Max 3 re-rolls per full box spin.
+Relics marked as undiscovered in the app data are automatically filtered out of every draw.

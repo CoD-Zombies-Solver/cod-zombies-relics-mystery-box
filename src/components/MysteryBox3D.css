@@ -47,14 +47,24 @@
 .mb-header h1 { color: #fff; margin: 0; font-size: 2.2rem; }
 .mb-header .subtitle { color: #aaa; font-size: 1rem; margin-top: 1em; }
 .controls { display: flex; gap: 16px; align-items: center; justify-content: center; }
-.controls .counter { background: #6b3cbf; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+.controls button { font: inherit; }
+.controls .counter { margin: 0; background: #6b3cbf; color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
 .controls .counter:hover { background: #7d4ed7; }
 .controls .counter:disabled { background: #444; cursor: not-allowed; }
-.rerolls { color: #aaa; font-size: 14px; }
+.settings-btn {
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #e5e7eb;
+  background: rgba(13, 10, 20, 0.7);
+  cursor: pointer;
+}
+.settings-btn:hover { border-color: rgba(192, 132, 252, 0.75); background: rgba(107, 60, 191, 0.22); }
+.settings-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* Floating grid for cards after reveal */
 .box-grid.floating {
-  --relic-card-height: 292px;
+  --relic-card-height: 246px;
   position: absolute;
   bottom: 0;
   left: 0;
@@ -246,34 +256,109 @@
   -webkit-line-clamp: 3;
 }
 
-.reroll-btn {
-  flex: 0 0 auto;
-  width: 100%;
-  margin-top: auto;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 8px;
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(920px, 100%);
+  max-height: min(820px, calc(100dvh - 48px));
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  color: #d1d5db;
+  background: linear-gradient(145deg, #191421, #0d0b12 65%);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65), 0 0 50px rgba(107, 60, 191, 0.14);
+}
+
+.settings-header,
+.settings-footer {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 24px;
+}
+
+.settings-header {
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settings-header h2 { margin: 2px 0 0; color: #fff; font-size: 24px; }
+.settings-eyebrow { margin: 0; color: #a78bfa; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.settings-close {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.05);
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #fff;
-  background: linear-gradient(180deg, #c94a4a, #9f3535);
-  box-shadow: 0 4px 12px rgba(176, 69, 69, 0.35);
-  transition: background 180ms ease, transform 180ms ease, opacity 180ms ease;
+  font-size: 25px;
+  line-height: 1;
 }
 
-.reroll-btn:hover:not(:disabled) {
-  background: linear-gradient(180deg, #d85a5a, #b04545);
-  transform: translateY(-1px);
-}
+.settings-content { overflow-y: auto; padding: 24px; }
+.settings-section { min-width: 0; margin: 0; padding: 0; border: 0; }
+.settings-section + .settings-section { margin-top: 28px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.settings-section legend,
+.settings-section-title { padding: 0; margin: 0; color: #fff; font-size: 16px; font-weight: 700; }
+.settings-help { margin: 4px 0 14px; color: #8f8999; font-size: 13px; }
 
-.reroll-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  box-shadow: none;
+.tier-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.tier-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  cursor: pointer;
 }
+.tier-option.selected { border-color: #8b5cf6; background: rgba(139, 92, 246, 0.13); box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.2); }
+.tier-option input { accent-color: #8b5cf6; }
+.tier-option-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.tier-option-copy strong { color: #f3f4f6; font-size: 14px; }
+.tier-option-copy small { overflow: hidden; color: #8f8999; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.tier-points { flex: none; color: #c4b5fd; font-size: 12px; font-weight: 700; }
 
+.relic-settings-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.clear-exclusions {
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  color: #c4b5fd;
+  background: transparent;
+  cursor: pointer;
+}
+.clear-exclusions:disabled { color: #5f5968; cursor: not-allowed; }
+.relic-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.relic-option-group h3 { margin: 0 0 8px; color: #a8a2b1; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.relic-option { display: grid; grid-template-columns: auto 32px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 42px; padding: 5px 8px; border-radius: 8px; cursor: pointer; }
+.relic-option:hover { background: rgba(255, 255, 255, 0.045); }
+.relic-option input { accent-color: #a855f7; }
+.relic-option img { width: 32px; height: 32px; object-fit: contain; }
+.relic-option span { overflow: hidden; color: #d7d3dc; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.relic-option small { color: #77717e; font-size: 10px; }
+
+.settings-footer { flex-wrap: wrap; border-top: 1px solid rgba(255, 255, 255, 0.08); background: rgba(0, 0, 0, 0.16); }
+.settings-footer > div { display: flex; flex: 1; flex-direction: column; min-width: 230px; }
+.settings-footer strong { color: #f3f4f6; font-size: 13px; }
+.settings-footer span { color: #7f7889; font-size: 11px; }
+.settings-error { flex-basis: 100%; order: 3; margin: -8px 0 0; color: #fca5a5; font-size: 12px; }
+.settings-done { padding: 10px 24px; border: 0; border-radius: 9px; color: white; background: #6b3cbf; cursor: pointer; font-weight: 700; }
+.settings-done:hover { background: #7d4ed7; }
 .box-grid.spinning .relic-card {
   animation: relic-wobble 900ms ease-in-out infinite;
   opacity: 0.65;
@@ -371,21 +456,14 @@
     border-radius: 10px;
   }
 
-  .rerolls {
-    flex: 1 1 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .settings-btn {
+    flex: 0 0 auto;
     min-height: 44px;
-    padding: 0 12px;
-    font-size: 13px;
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding-inline: 16px;
   }
 
   .box-grid.floating {
-    --relic-card-height: 248px;
+    --relic-card-height: 208px;
     position: relative;
     flex: 1 1 auto;
     min-height: 0;
@@ -431,11 +509,16 @@
     margin-bottom: 6px;
   }
 
-  .reroll-btn {
-    min-height: 40px;
-    padding: 10px;
-    font-size: 13px;
-  }
+  .settings-backdrop { align-items: end; padding: 0; }
+  .settings-panel { width: 100%; max-height: 92dvh; border-width: 1px 0 0; border-radius: 18px 18px 0 0; }
+  .settings-header, .settings-footer { padding: 16px; }
+  .settings-content { padding: 18px 16px; }
+  .tier-options { grid-template-columns: 1fr; }
+  .relic-options { grid-template-columns: 1fr; gap: 16px; }
+  .relic-option-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .relic-option-group h3 { grid-column: 1 / -1; }
+  .settings-footer { gap: 12px; }
+  .settings-done { width: 100%; }
 }
 
 /* Small phones */
@@ -445,7 +528,7 @@
   }
 
   .box-grid.floating {
-    --relic-card-height: 236px;
+    --relic-card-height: 198px;
     column-gap: 10px;
     padding-inline: 10px;
   }

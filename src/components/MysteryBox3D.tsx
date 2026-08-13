@@ -1,12 +1,22 @@
-import { useRef, useState, useEffect, Suspense } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { useGLTF, OrbitControls, Html, useProgress } from '@react-three/drei'
+import { Html, OrbitControls, useGLTF, useProgress } from '@react-three/drei'
+import type { Object3D } from 'three'
+import './MysteryBox3D.css'
+import { cursedTiers, grimRelics, sinisterRelics, wickedRelics } from '../data/relics'
+import type { CursedTier, Relic } from '../data/relics'
 
 // Served from /public so scene.bin + textures keep their relative paths in production
 const MODEL_URL = `${import.meta.env.BASE_URL}mystery-box/scene.gltf`
-import './MysteryBox3D.css'
-import { grimRelics, sinisterRelics, wickedRelics } from '../data/relics'
-import type { Relic } from '../data/relics'
+const allRelics: Relic[] = [...grimRelics, ...sinisterRelics, ...wickedRelics]
+const discoveredRelics = allRelics.filter((relic) => relic.discovered)
+const undiscoveredRelicCount = allRelics.length - discoveredRelics.length
+const SETTINGS_STORAGE_KEY = 'cursed-mystery-box-settings'
+
+interface SavedSettings {
+  tierId: string
+  excludedRelicIds: string[]
+}
 
 function shuffle<T>(arr: T[]) {
   const a = arr.slice()
@@ -17,7 +27,48 @@ function shuffle<T>(arr: T[]) {
   return a
 }
 
-const allRelics: Relic[] = [...grimRelics, ...sinisterRelics, ...wickedRelics]
+function loadSettings(): SavedSettings {
+  const fallback = { tierId: cursedTiers[0].id, excludedRelicIds: [] }
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '') as Partial<SavedSettings>
+    const tierId = cursedTiers.some((tier) => tier.id === saved.tierId)
+      ? saved.tierId!
+      : fallback.tierId
+    const excludedRelicIds = Array.isArray(saved.excludedRelicIds)
+      ? saved.excludedRelicIds.filter((id) => discoveredRelics.some((relic) => relic.id === id))
+      : []
+
+    return { tierId, excludedRelicIds }
+  } catch {
+    return fallback
+  }
+}
+
+function drawRelicsForTier(pool: Relic[], pointsRequired: number): Relic[] | null {
+  const relics = shuffle(pool)
+  const failedStates = new Set<string>()
+
+  function findCombination(index: number, pointsLeft: number): Relic[] | null {
+    if (pointsLeft === 0) return []
+    if (index >= relics.length || pointsLeft < 0) return null
+
+    const stateKey = `${index}:${pointsLeft}`
+    if (failedStates.has(stateKey)) return null
+
+    const relic = relics[index]
+    const withRelic = findCombination(index + 1, pointsLeft - relic.cursedPoints)
+    if (withRelic) return [relic, ...withRelic]
+
+    const withoutRelic = findCombination(index + 1, pointsLeft)
+    if (withoutRelic) return withoutRelic
+
+    failedStates.add(stateKey)
+    return null
+  }
+
+  return findCombination(0, pointsRequired)
+}
 
 function relicTypeClass(type: string) {
   const t = type.toLowerCase()
@@ -34,7 +85,6 @@ function useMediaQuery(query: string) {
 
   useEffect(() => {
     const mq = window.matchMedia(query)
-    setMatches(mq.matches)
     const onChange = (event: MediaQueryListEvent) => setMatches(event.matches)
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
@@ -49,21 +99,19 @@ function SceneLoader() {
   const { progress } = useProgress()
   return (
     <Html center>
-      <p className="scene-loading">Loading box… {Math.round(progress)}%</p>
+      <p className="scene-loading">Loading box... {Math.round(progress)}%</p>
     </Html>
   )
 }
 
 function BoxModel({ open, compact }: { open: boolean; compact?: boolean }) {
   const gltf = useGLTF(MODEL_URL)
-  const topRef = useRef<any>(null)
+  const topRef = useRef<Object3D | null>(null)
 
-  // try to find a node that matches common box top names
   useEffect(() => {
     if (!gltf) return
     const nodes = gltf.nodes || {}
     topRef.current = nodes.BoxTop_00 || nodes.BoxTop_end_02 || nodes.BoxTop || nodes['BoxTop'] || nodes['BoxTop.001'] || null
-    // fallback: search by name
     if (!topRef.current) {
       for (const k of Object.keys(nodes)) {
         if (k.toLowerCase().includes('box') && k.toLowerCase().includes('top')) {
@@ -72,9 +120,8 @@ function BoxModel({ open, compact }: { open: boolean; compact?: boolean }) {
         }
       }
     }
-    // ensure the box top starts in closed position
     if (topRef.current) {
-      topRef.current.rotation.x = Math.PI * 1
+      topRef.current.rotation.x = Math.PI
       topRef.current.rotation.y = topRef.current.rotation.y || 0
       topRef.current.rotation.z = topRef.current.rotation.z || 0
     }
@@ -82,8 +129,7 @@ function BoxModel({ open, compact }: { open: boolean; compact?: boolean }) {
 
   useFrame((_state, dt) => {
     if (topRef.current) {
-      const target = open ? 0 : Math.PI * 1
-      // smooth rotation towards target
+      const target = open ? 0 : Math.PI
       topRef.current.rotation.x += (target - (topRef.current.rotation.x || 0)) * Math.min(0.18, dt * 8)
     }
   })
@@ -97,46 +143,81 @@ function BoxModel({ open, compact }: { open: boolean; compact?: boolean }) {
   )
 }
 
-export default function MysteryBox3D() {
-  // pick a random number of relics between 1 and the total available
-  function randomRelicCount() {
-    const max = allRelics.length || 1
-    return Math.floor(Math.random() * max) + 1
-  }
+function TierOption({ tier, selected, onSelect }: { tier: CursedTier; selected: boolean; onSelect: () => void }) {
+  return (
+    <label className={`tier-option${selected ? ' selected' : ''}`}>
+      <input type="radio" name="cursed-tier" checked={selected} onChange={onSelect} />
+      <span className="tier-option-copy">
+        <strong>{tier.name}</strong>
+        <small>{tier.unlock}</small>
+      </span>
+    </label>
+  )
+}
 
-  const [shown, setShown] = useState<Relic[]>(() => shuffle(allRelics).slice(0, randomRelicCount()))
+export default function MysteryBox3D() {
+  const [initialSettings] = useState(loadSettings)
+  const [selectedTierId, setSelectedTierId] = useState(initialSettings.tierId)
+  const [excludedRelicIds, setExcludedRelicIds] = useState<Set<string>>(
+    () => new Set(initialSettings.excludedRelicIds),
+  )
+  const [shown, setShown] = useState<Relic[]>([])
   const [spinning, setSpinning] = useState(false)
   const [open, setOpen] = useState(false)
   const [revealed, setRevealed] = useState(false)
-  const [rerollsRemaining, setRerollsRemaining] = useState(3)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const isMobile = useMediaQuery('(max-width: 768px)')
+
+  const selectedTier = cursedTiers.find((tier) => tier.id === selectedTierId) ?? cursedTiers[0]
+  const eligibleRelics = useMemo(
+    () => discoveredRelics.filter((relic) => !excludedRelicIds.has(relic.id)),
+    [excludedRelicIds],
+  )
+  const hasValidDraw = useMemo(
+    () => drawRelicsForTier(eligibleRelics, selectedTier.pointsRequired) !== null,
+    [eligibleRelics, selectedTier.pointsRequired],
+  )
+
+  useEffect(() => {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ tierId: selectedTierId, excludedRelicIds: [...excludedRelicIds] }),
+    )
+  }, [excludedRelicIds, selectedTierId])
+
+  useEffect(() => {
+    if (!settingsOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSettingsOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [settingsOpen])
 
   function spin() {
     if (spinning) return
+    const nextRelics = drawRelicsForTier(eligibleRelics, selectedTier.pointsRequired)
+    if (!nextRelics) return
+
     setSpinning(true)
     setRevealed(false)
-    // open the lid animation
     setOpen(true)
 
     setTimeout(() => {
-      setShown(shuffle(allRelics).slice(0, randomRelicCount()))
-      setRerollsRemaining(3)
+      setShown(nextRelics)
       setSpinning(false)
-      // reveal cards after slight delay
       setTimeout(() => setRevealed(true), 120)
-      // close lid after cards are visible
       setTimeout(() => setOpen(false), 1600)
     }, 900)
   }
 
-  function rerollAt(index: number) {
-    if (rerollsRemaining <= 0) return
-    const currentIds = new Set(shown.map((r) => r.id))
-    const candidates = allRelics.filter((r) => !currentIds.has(r.id))
-    if (candidates.length === 0) return
-    const replacement = candidates[Math.floor(Math.random() * candidates.length)]
-    setShown((s) => s.map((r, i) => (i === index ? replacement : r)))
-    setRerollsRemaining((v) => v - 1)
+  function toggleExcludedRelic(relicId: string) {
+    setExcludedRelicIds((current) => {
+      const next = new Set(current)
+      if (next.has(relicId)) next.delete(relicId)
+      else next.add(relicId)
+      return next
+    })
   }
 
   const camera = isMobile
@@ -152,57 +233,142 @@ export default function MysteryBox3D() {
           <Suspense fallback={<SceneLoader />}>
             <BoxModel open={open} compact={isMobile} />
           </Suspense>
-          <OrbitControls
-            enableZoom={false}
-            enablePan={false}
-            enableRotate={!isMobile}
-            autoRotate={false}
-          />
+          <OrbitControls enableZoom={false} enablePan={false} enableRotate={!isMobile} autoRotate={false} />
         </Canvas>
-        
+
         <header className="mb-header">
           <div className="title">
             <h1>Cursed Mystery Box</h1>
             <p className="subtitle">Spin this Mystery Box and reveal your Cursed Relics challenge.</p>
           </div>
           <div className="controls">
-            <button className="counter" onClick={spin} disabled={spinning}>
-              {spinning ? 'Opening…' : 'Open Box'}
+            <button type="button" className="settings-btn" onClick={() => setSettingsOpen(true)} disabled={spinning}>
+              Settings
             </button>
-            <div className="rerolls">Rerolls: {rerollsRemaining}</div>
+            <button
+              type="button"
+              className="counter"
+              onClick={hasValidDraw ? spin : () => setSettingsOpen(true)}
+              disabled={spinning}
+            >
+              {spinning ? 'Opening...' : hasValidDraw ? `Open ${selectedTier.name} Box` : 'Adjust relic pool'}
+            </button>
           </div>
         </header>
       </div>
 
       {revealed && (
-        <div
-          className={`box-grid floating ${spinning ? 'spinning' : ''} ${revealed ? 'revealed' : ''}`}
-          data-count={shown.length}
-        >
-          {shown.map((r, idx) => (
+        <div className={`box-grid floating ${spinning ? 'spinning' : ''} revealed`} data-count={shown.length}>
+          {shown.map((relic, index) => (
             <article
-              key={r.id}
-              className={`relic-card ${relicTypeClass(r.type)}`}
-              style={{ transitionDelay: `${idx * 80}ms` }}
+              key={relic.id}
+              className={`relic-card ${relicTypeClass(relic.type)}`}
+              style={{ transitionDelay: `${index * 80}ms` }}
             >
               <div className="relic-image-wrap">
-                <img src={r.image} alt={r.name} className="relic-image" loading="lazy" />
+                <img src={relic.image} alt={relic.name} className="relic-image" loading="lazy" />
               </div>
               <div className="relic-body">
-                <span className="relic-type">{r.type}</span>
-                <h3 className="relic-name">{r.name}</h3>
-                <p className="relic-desc">{r.description}</p>
-                <button
-                  type="button"
-                  onClick={() => rerollAt(idx)}
-                  disabled={rerollsRemaining <= 0}
-                  className="reroll-btn"
-                >
-                  Reroll
-                </button>
+                <span className="relic-type">{relic.type}</span>
+                <h3 className="relic-name">{relic.name}</h3>
+                <p className="relic-desc">{relic.description}</p>
               </div>
             </article>
           ))}
+        </div>
+      )}
+
+      {settingsOpen && (
+        <div className="settings-backdrop" onMouseDown={() => setSettingsOpen(false)}>
+          <section
+            className="settings-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="settings-header">
+              <div>
+                <p className="settings-eyebrow">Box configuration</p>
+                <h2 id="settings-title">Cursed settings</h2>
+              </div>
+              <button type="button" className="settings-close" onClick={() => setSettingsOpen(false)} aria-label="Close settings">
+                &times;
+              </button>
+            </header>
+
+            <div className="settings-content">
+              <fieldset className="settings-section tier-settings">
+                <legend>Desired Cursed Tier</legend>
+                <p className="settings-help">The box will draw relics totaling this tier's required points.</p>
+                <div className="tier-options">
+                  {cursedTiers.map((tier) => (
+                    <TierOption
+                      key={tier.id}
+                      tier={tier}
+                      selected={tier.id === selectedTierId}
+                      onSelect={() => setSelectedTierId(tier.id)}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+
+              <section className="settings-section relic-settings">
+                <div className="relic-settings-heading">
+                  <div>
+                    <h3 className="settings-section-title">Exclude locked relics</h3>
+                    <p className="settings-help">Select any discovered relics you have not unlocked.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="clear-exclusions"
+                    onClick={() => setExcludedRelicIds(new Set())}
+                    disabled={excludedRelicIds.size === 0}
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                <div className="relic-options">
+                  {(['Grim', 'Sinister', 'Wicked'] as const).map((type) => (
+                    <div className="relic-option-group" key={type}>
+                      <h3>{type}</h3>
+                      {discoveredRelics
+                        .filter((relic) => relic.type === type)
+                        .map((relic) => (
+                          <label className="relic-option" key={relic.id}>
+                            <input
+                              type="checkbox"
+                              checked={excludedRelicIds.has(relic.id)}
+                              onChange={() => toggleExcludedRelic(relic.id)}
+                            />
+                            <img src={relic.image} alt="" loading="lazy" />
+                            <span>{relic.name}</span>
+                          </label>
+                        ))}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <footer className="settings-footer">
+              <div>
+                <strong>{eligibleRelics.length} relics available</strong>
+                <span>
+                  {excludedRelicIds.size} excluded by you / {undiscoveredRelicCount} undiscovered automatically filtered
+                </span>
+              </div>
+              {!hasValidDraw && (
+                <p className="settings-error" role="alert">
+                  Restore at least one relic combination totaling {selectedTier.pointsRequired} points.
+                </p>
+              )}
+              <button type="button" className="settings-done" onClick={() => setSettingsOpen(false)}>
+                Done
+              </button>
+            </footer>
+          </section>
         </div>
       )}
     </section>
