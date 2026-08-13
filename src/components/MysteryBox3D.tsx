@@ -4,7 +4,9 @@ import { Html, OrbitControls, useGLTF, useProgress } from '@react-three/drei'
 import type { Object3D } from 'three'
 import './MysteryBox3D.css'
 import { cursedTiers, grimRelics, sinisterRelics, wickedRelics } from '../data/relics'
-import type { CursedTier, Relic } from '../data/relics'
+import type { Relic } from '../data/relics'
+import { maps } from '../data/maps'
+import type { ZombieMap } from '../data/maps'
 
 // Served from /public so scene.bin + textures keep their relative paths in production
 const MODEL_URL = `${import.meta.env.BASE_URL}mystery-box/scene.gltf`
@@ -12,6 +14,43 @@ const allRelics: Relic[] = [...grimRelics, ...sinisterRelics, ...wickedRelics]
 const discoveredRelics = allRelics.filter((relic) => relic.discovered)
 const undiscoveredRelicCount = allRelics.length - discoveredRelics.length
 const SETTINGS_STORAGE_KEY = 'cursed-mystery-box-settings'
+
+type TierModeKind = 'fixed' | 'random' | 'uncapped'
+
+interface TierMode {
+  id: string
+  name: string
+  description: string
+  kind: TierModeKind
+  pointsRequired?: number
+}
+
+interface RelicDraw {
+  relics: Relic[]
+  label: string
+}
+
+const tierModes: TierMode[] = [
+  ...cursedTiers.map((tier) => ({
+    id: tier.id,
+    name: tier.name,
+    description: tier.unlock,
+    kind: 'fixed' as const,
+    pointsRequired: tier.pointsRequired,
+  })),
+  {
+    id: 'random-tier',
+    name: 'Random Tier',
+    description: 'Tier I, II, or III each spin',
+    kind: 'random',
+  },
+  {
+    id: 'no-cap',
+    name: 'No Cap',
+    description: 'Any number of relics',
+    kind: 'uncapped',
+  },
+]
 
 interface SavedSettings {
   tierId: string
@@ -32,7 +71,7 @@ function loadSettings(): SavedSettings {
 
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '') as Partial<SavedSettings>
-    const tierId = cursedTiers.some((tier) => tier.id === saved.tierId)
+    const tierId = tierModes.some((mode) => mode.id === saved.tierId)
       ? saved.tierId!
       : fallback.tierId
     const excludedRelicIds = Array.isArray(saved.excludedRelicIds)
@@ -68,6 +107,44 @@ function drawRelicsForTier(pool: Relic[], pointsRequired: number): Relic[] | nul
   }
 
   return findCombination(0, pointsRequired)
+}
+
+function createRelicDraw(pool: Relic[], mode: TierMode): RelicDraw | null {
+  if (mode.kind === 'uncapped') {
+    if (pool.length === 0) return null
+    const relics = shuffle(pool).slice(0, Math.floor(Math.random() * pool.length) + 1)
+    return {
+      relics,
+      label: 'No Cap',
+    }
+  }
+
+  if (mode.kind === 'random') {
+    const availableDraws = cursedTiers
+      .map((tier) => {
+        const relics = drawRelicsForTier(pool, tier.pointsRequired)
+        return relics
+          ? { relics, label: tier.name }
+          : null
+      })
+      .filter((draw): draw is RelicDraw => draw !== null)
+
+    return availableDraws.length > 0
+      ? availableDraws[Math.floor(Math.random() * availableDraws.length)]
+      : null
+  }
+
+  const pointsRequired = mode.pointsRequired ?? 0
+  const relics = drawRelicsForTier(pool, pointsRequired)
+  return relics ? { relics, label: mode.name } : null
+}
+
+function canDrawMode(pool: Relic[], mode: TierMode) {
+  if (mode.kind === 'uncapped') return pool.length > 0
+  if (mode.kind === 'random') {
+    return cursedTiers.some((tier) => drawRelicsForTier(pool, tier.pointsRequired) !== null)
+  }
+  return drawRelicsForTier(pool, mode.pointsRequired ?? 0) !== null
 }
 
 function relicTypeClass(type: string) {
@@ -143,13 +220,13 @@ function BoxModel({ open, compact }: { open: boolean; compact?: boolean }) {
   )
 }
 
-function TierOption({ tier, selected, onSelect }: { tier: CursedTier; selected: boolean; onSelect: () => void }) {
+function TierOption({ mode, selected, onSelect }: { mode: TierMode; selected: boolean; onSelect: () => void }) {
   return (
     <label className={`tier-option${selected ? ' selected' : ''}`}>
       <input type="radio" name="cursed-tier" checked={selected} onChange={onSelect} />
       <span className="tier-option-copy">
-        <strong>{tier.name}</strong>
-        <small>{tier.unlock}</small>
+        <strong>{mode.name}</strong>
+        <small>{mode.description}</small>
       </span>
     </label>
   )
@@ -162,20 +239,24 @@ export default function MysteryBox3D() {
     () => new Set(initialSettings.excludedRelicIds),
   )
   const [shown, setShown] = useState<Relic[]>([])
+  const [shownMap, setShownMap] = useState<ZombieMap | null>(null)
+  const [drawLabel, setDrawLabel] = useState('')
   const [spinning, setSpinning] = useState(false)
   const [open, setOpen] = useState(false)
   const [revealed, setRevealed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const mapBagRef = useRef<ZombieMap[]>([])
+  const lastMapIdRef = useRef<string | null>(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
 
-  const selectedTier = cursedTiers.find((tier) => tier.id === selectedTierId) ?? cursedTiers[0]
+  const selectedMode = tierModes.find((mode) => mode.id === selectedTierId) ?? tierModes[0]
   const eligibleRelics = useMemo(
     () => discoveredRelics.filter((relic) => !excludedRelicIds.has(relic.id)),
     [excludedRelicIds],
   )
   const hasValidDraw = useMemo(
-    () => drawRelicsForTier(eligibleRelics, selectedTier.pointsRequired) !== null,
-    [eligibleRelics, selectedTier.pointsRequired],
+    () => canDrawMode(eligibleRelics, selectedMode),
+    [eligibleRelics, selectedMode],
   )
 
   useEffect(() => {
@@ -194,17 +275,37 @@ export default function MysteryBox3D() {
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [settingsOpen])
 
+  function drawNextMap() {
+    if (maps.length === 0) return null
+
+    if (mapBagRef.current.length === 0) {
+      const nextBag = shuffle(maps)
+      const repeatedIndex = nextBag.findIndex((map) => map.id === lastMapIdRef.current)
+      if (repeatedIndex === nextBag.length - 1 && nextBag.length > 1) {
+        ;[nextBag[0], nextBag[repeatedIndex]] = [nextBag[repeatedIndex], nextBag[0]]
+      }
+      mapBagRef.current = nextBag
+    }
+
+    const nextMap = mapBagRef.current.pop() ?? null
+    lastMapIdRef.current = nextMap?.id ?? null
+    return nextMap
+  }
+
   function spin() {
     if (spinning) return
-    const nextRelics = drawRelicsForTier(eligibleRelics, selectedTier.pointsRequired)
-    if (!nextRelics) return
+    const nextDraw = createRelicDraw(eligibleRelics, selectedMode)
+    if (!nextDraw) return
+    const nextMap = drawNextMap()
 
     setSpinning(true)
     setRevealed(false)
     setOpen(true)
 
     setTimeout(() => {
-      setShown(nextRelics)
+      setShown(nextDraw.relics)
+      setShownMap(nextMap)
+      setDrawLabel(nextDraw.label)
       setSpinning(false)
       setTimeout(() => setRevealed(true), 120)
       setTimeout(() => setOpen(false), 1600)
@@ -251,19 +352,36 @@ export default function MysteryBox3D() {
               onClick={hasValidDraw ? spin : () => setSettingsOpen(true)}
               disabled={spinning}
             >
-              {spinning ? 'Opening...' : hasValidDraw ? `Open ${selectedTier.name} Box` : 'Adjust relic pool'}
+              {spinning ? 'Opening...' : hasValidDraw ? `Open ${selectedMode.name} Box` : 'Adjust relic pool'}
             </button>
           </div>
         </header>
       </div>
 
       {revealed && (
-        <div className={`box-grid floating ${spinning ? 'spinning' : ''} revealed`} data-count={shown.length}>
+        <div
+          className={`box-grid floating ${spinning ? 'spinning' : ''} revealed`}
+          data-count={shown.length + (shownMap ? 1 : 0)}
+        >
+          {shownMap && (
+            <article className="relic-card map-card" style={{ transitionDelay: '0ms' }}>
+              <div className="relic-image-wrap map-image-wrap">
+                <img src={shownMap.image} alt={shownMap.name} className="relic-image map-image" />
+              </div>
+              <div className="relic-body">
+                <span className={`relic-type map-type map-type--${shownMap.type}`}>
+                  {shownMap.type === 'survival' ? 'Survival Map' : 'Round-Based Map'}
+                </span>
+                <h3 className="relic-name">{shownMap.name}</h3>
+                <p className="relic-desc result-summary">{drawLabel}</p>
+              </div>
+            </article>
+          )}
           {shown.map((relic, index) => (
             <article
               key={relic.id}
               className={`relic-card ${relicTypeClass(relic.type)}`}
-              style={{ transitionDelay: `${index * 80}ms` }}
+              style={{ transitionDelay: `${(index + 1) * 80}ms` }}
             >
               <div className="relic-image-wrap">
                 <img src={relic.image} alt={relic.name} className="relic-image" loading="lazy" />
@@ -300,14 +418,16 @@ export default function MysteryBox3D() {
             <div className="settings-content">
               <fieldset className="settings-section tier-settings">
                 <legend>Desired Cursed Tier</legend>
-                <p className="settings-help">The box will draw relics totaling this tier's required points.</p>
+                <p className="settings-help">
+                  Pick an exact tier, randomize between tiers, or remove the Tier III relic cap.
+                </p>
                 <div className="tier-options">
-                  {cursedTiers.map((tier) => (
+                  {tierModes.map((mode) => (
                     <TierOption
-                      key={tier.id}
-                      tier={tier}
-                      selected={tier.id === selectedTierId}
-                      onSelect={() => setSelectedTierId(tier.id)}
+                      key={mode.id}
+                      mode={mode}
+                      selected={mode.id === selectedTierId}
+                      onSelect={() => setSelectedTierId(mode.id)}
                     />
                   ))}
                 </div>
@@ -361,7 +481,7 @@ export default function MysteryBox3D() {
               </div>
               {!hasValidDraw && (
                 <p className="settings-error" role="alert">
-                  Restore at least one relic combination totaling {selectedTier.pointsRequired} points.
+                  Restore enough relics to create a draw for {selectedMode.name}.
                 </p>
               )}
               <button type="button" className="settings-done" onClick={() => setSettingsOpen(false)}>

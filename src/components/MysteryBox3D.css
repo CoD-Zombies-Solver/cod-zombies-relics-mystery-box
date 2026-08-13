@@ -66,35 +66,35 @@
 .box-grid.floating {
   --relic-card-height: 246px;
   position: absolute;
-  bottom: 0;
-  left: 0;
+  top: 112px;
   right: 0;
+  bottom: 24px;
+  left: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 280px));
   grid-auto-rows: var(--relic-card-height);
   grid-auto-flow: row;
   justify-content: center;
-  align-content: start;
+  align-content: safe center;
   align-items: stretch;
   column-gap: 18px;
   row-gap: 22px;
-  padding: 20px clamp(16px, 3vw, 32px) 24px;
-  max-height: min(46vh, 560px);
+  padding: 24px clamp(16px, 3vw, 32px);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: rgba(170, 59, 255, 0.45) rgba(255, 255, 255, 0.06);
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(6, 4, 12, 0.72) 18%,
-    rgba(6, 4, 12, 0.94) 100%
+  background: radial-gradient(
+    circle at center,
+    rgba(6, 4, 12, 0.96) 0%,
+    rgba(6, 4, 12, 0.82) 46%,
+    rgba(6, 4, 12, 0.36) 78%,
+    transparent 100%
   );
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(4px);
 }
-
 .box-grid.floating[data-count='1'] {
   grid-template-columns: minmax(220px, 300px);
 }
@@ -166,6 +166,37 @@
 .relic-card--wicked {
   --relic-accent: #f97316;
   --relic-glow: rgba(249, 115, 22, 0.34);
+}
+
+.map-card {
+  --relic-accent: #38bdf8;
+  --relic-glow: rgba(56, 189, 248, 0.34);
+}
+
+.map-image-wrap {
+  flex-basis: 112px;
+  height: 112px;
+}
+
+.map-image {
+  padding: 0;
+  object-fit: cover;
+}
+
+.result-summary {
+  flex: 0 0 auto;
+  color: #bae6fd;
+  font-weight: 600;
+}
+
+.map-card .map-type--survival {
+  background: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.34);
+}
+
+.map-card .map-type--round-based {
+  background: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.34);
 }
 
 .box-grid.revealed .relic-card {
@@ -314,7 +345,7 @@
 .settings-section-title { padding: 0; margin: 0; color: #fff; font-size: 16px; font-weight: 700; }
 .settings-help { margin: 4px 0 14px; color: #8f8999; font-size: 13px; }
 
-.tier-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.tier-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 .tier-option {
   display: flex;
   align-items: center;
@@ -331,7 +362,6 @@
 .tier-option-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .tier-option-copy strong { color: #f3f4f6; font-size: 14px; }
 .tier-option-copy small { overflow: hidden; color: #8f8999; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.tier-points { flex: none; color: #c4b5fd; font-size: 12px; font-weight: 700; }
 
 .relic-settings-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
 .clear-exclusions {
@@ -345,7 +375,7 @@
 .clear-exclusions:disabled { color: #5f5968; cursor: not-allowed; }
 .relic-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .relic-option-group h3 { margin: 0 0 8px; color: #a8a2b1; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
-.relic-option { display: grid; grid-template-columns: auto 32px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 42px; padding: 5px 8px; border-radius: 8px; cursor: pointer; }
+.relic-option { display: grid; grid-template-columns: auto 32px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 42px; padding: 5px 8px; border-radius: 8px; cursor: pointer; }
 .relic-option:hover { background: rgba(255, 255, 255, 0.045); }
 .relic-option input { accent-color: #a855f7; }
 .relic-option img { width: 32px; height: 32px; object-fit: contain; }
@@ -381,7 +411,7 @@
   }
 
   .box-grid.floating {
-    max-height: min(50vh, 520px);
+    top: 96px;
     padding-inline: 16px;
   }
 }
@@ -465,10 +495,12 @@
   .box-grid.floating {
     --relic-card-height: 208px;
     position: relative;
+    inset: auto;
     flex: 1 1 auto;
     min-height: 0;
     max-height: none;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: safe center;
     column-gap: 12px;
     row-gap: 14px;
     padding: 12px 12px max(16px, env(safe-area-inset-bottom));
@@ -488,6 +520,15 @@
 
   .box-grid.floating[data-count='2'] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .box-grid.floating > .relic-card:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc(50% - 6px);
+  }
+
+  .box-grid.floating[data-count='1'] > .relic-card:last-child {
+    width: 100%;
   }
 
   .relic-card {
